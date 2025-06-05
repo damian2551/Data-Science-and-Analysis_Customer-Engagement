@@ -1,0 +1,231 @@
+---
+title: "PDS Assessment 2_22049939"
+author: "Damian Nguyen"
+date: "2025-05-07"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Assumptions**\
+- Any rows having NA or blank strings in user_id or review_id will be removed as they are not meaningful for further calculations.\
+- Other variables which are not used in the analysis but having NA or blank strings may not need to be removed.\
+- In reviews dataset, users are assumed to be in the same State with the business they reviewed. 
+
+**Packages installation**
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+```
+
+# Question 1
+
+## 1.1) Data Wrangling
+
+For this question, users dataset will be used. The first step is to review the dataset, and then format data if required.
+
+```{r}
+users <- read.csv("users.csv") #import data
+
+#Review data
+head(users)
+str(users)
+
+colSums(is.na(users)) #count if there are any NA values in each column
+colSums(users == "") #count if there are any blank strings ("") in each column
+```
+
+**Findings:** Despite there is no NA values from the users dataset, the following columns - user_id, name, member_since have the blank strings ("").\
+\
+
+Reviewing top 15 users by review_count:
+
+```{r}
+top15_ReviewCount <- users %>%  arrange(desc(review_count)) %>% select(name, review_count) %>% head(15)
+top15_ReviewCount
+```
+
+**Conclusion:** Since top 15 users have the same number of review count (99) which is not meaningful for intepretation afterward. users dataset will be merged with reviews dataset for better analaysis.\
+
+Before joining, reviews data would be examined for usability:
+
+```{r}
+reviews <- read.csv("reviews.csv") #import reviews dataset
+
+#Examine data
+str(reviews)
+colSums(is.na(reviews)) #No NA Values
+colSums((reviews==""))
+```
+
+```{r}
+#check duplicated data 
+colSums(sapply(reviews, duplicated))
+```
+
+**Conclusion**\
+- There is no NA values from the reviews dataset. However, there are empty string values in review_id user_id.\
+- Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.\
+- Only user_id variable should be addressed if there are any duplicates for further analysis.\
+
+Remove any rows having empty strings values in user_id and review_id from reviews for further analysis:
+
+```{r}
+cleaned_reviews <- reviews %>% filter(review_id != "") %>% filter(user_id != "")
+colSums((cleaned_reviews==""))
+```
+
+**Joint data:** reviews will left joint with `users` since a user can review multiple times. Therefore, this approach will ensure not missing any review_id, which will be used for counting the number of review later per user later on.
+
+```{r}
+reviewsUsers <- cleaned_reviews %>% left_join(users, by = c("user_id" = "user_id"))
+head(reviewsUsers)
+```
+
+## 1.2) Three User Groups:
+
+After checking, the variable member_since should be formatted to Date variable in order to categorise into three groups later on
+
+```{r}
+reviewsUsers$member_since <- as.Date(reviewsUsers$member_since) #change to Date variable.
+head(reviewsUsers$member_since) #double check the reformatted member_since
+```
+
+This step is to create 3 different user groups - Veteran, Intermediate and New based on their joining date, using member_since Note: When filtering, blank strings are automatically transferred to NA values, and will be removed using drop_na().
+
+```{r}
+Veteran <- reviewsUsers %>%
+  filter(reviewsUsers$member_since < as.Date('2017-01-01')) %>% 
+  drop_na(member_since) #removes any rows where the member_since column is NA (missing) 
+
+Intermediate <- reviewsUsers %>%
+  filter(between(reviewsUsers$member_since, as.Date('2017-01-01'), as.Date('2022-12-31'))) %>% drop_na(member_since)
+
+New <- reviewsUsers %>%
+  filter(reviewsUsers$member_since > as.Date('2022-12-31')) %>% drop_na(member_since)
+
+#Count if there are NA values in user_id columns
+sum(is.na(Veteran$user_id))
+sum(is.na(Intermediate$user_id))
+sum(is.na(New$user_id))
+```
+
+Conclusion:\
+-There are no NA values in three datasets - Veteran, Intermediate and New.\
+-The three datasets are ready for further analysis.\
+
+## 1.3) Calculate the numbers of users, their average review stars and average number of reviews per user.
+
+Calculate the number of unique users
+
+```{r}
+#numbers of unique users, using count distinct as there are duplicates in each User Group
+numVeteran <- Veteran %>% summarise(count = n_distinct(user_id))
+numIntermediate <- Intermediate %>% summarise(count = n_distinct(user_id))
+numNew<- New %>% summarise(count = n_distinct(user_id))
+
+#convert to numberic for tabulating
+numVeteran <- as.numeric(numVeteran)
+numIntermediate <- as.numeric(numIntermediate)
+numNew <- as.numeric(numNew)
+```
+
+Calculate the average review rating
+
+```{r}
+#average review
+avg_Veteran <- Veteran %>% filter(!is.na(stars), stars != "") %>%# Remove NA and blank strings
+  mutate(stars = as.numeric(stars)) %>% # Convert to numeric
+  summarise(avg_star = mean(stars, na.rm = TRUE))
+
+avg_Intermediate <- Intermediate %>% filter(!is.na(stars), stars != "") %>%# Remove NA and blank strings 
+  mutate(stars = as.numeric(stars)) %>% # Convert to numeric
+  summarise(avg_star = mean(stars, na.rm = TRUE))
+
+avg_New <- New %>% filter(!is.na(stars), stars != "") %>%# Remove NA and blank strings 
+  mutate(stars = as.numeric(stars)) %>% # Convert to numeric
+  summarise(avg_star = mean(stars, na.rm = TRUE))
+
+## convert to numeric for tabulation
+avg_Veteran <- as.numeric(avg_Veteran)
+avg_Intermediate <- as.numeric(avg_Intermediate)
+avg_New <- as.numeric(avg_New)
+```
+
+Since the goal is to calculate the average number of reviews **per user**, unique number of users will be used instead of the number of user as a whole.
+
+```{r}
+#average review count - unique r
+avgReCount_Veteran <- length(Veteran$review_id) / numVeteran
+avgReCount_Intermediate <- length(Intermediate$review_id) / numIntermediate
+avgReCount_New <- length(New$review_id) / numNew
+```
+
+Tabulate the data using kable:
+
+```{r}
+# Create a summary data frame
+summaryTable <- data.frame(row.names = Group <- c("Veteran", "Intermediate", "New"),
+  Number_of_Unique_Users = c(numVeteran, numIntermediate, numNew),
+  Average_Review_Stars = c(avg_Veteran, avg_Intermediate, avg_New),
+  Average_Review_Count = c(avgReCount_Veteran, avgReCount_Intermediate,avgReCount_New))
+
+colnames(summaryTable) <- c("Unique Users", "Average Stars", "Average Review Count") #rename headers
+
+# Display with table using kable()
+kable(summaryTable, caption = "User Summary by Groups", digits = 3) %>% #round to 3 decimals
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE,
+                position = "center")
+```
+
+**Findings**\
+- Intermediate has a highest number of members (`r numIntermediate`), while Veteran has the lowest number.\
+- There are less significant differences between their average review length, indicating similar user behaviours across three groups.\
+- However, as old users (Veteran), their average review should be higher compared to other groups, while their figure is the lowest, indicating quite low user behaviour from this group. - Given the considerable number of members, Intermediate average rating is the second-highest, implying a good engagement from this group.\
+- The average rating from Veteran (old customers) is the lowest, along with low average review length, implying their low engagement with the community.\
+- The average review star of New users is the highest, along with their second-highest position in number of unique users, indicating a good engagement from them and good attraction from the community recently.\
+
+## 1.4) Visualisation of Average Review Stars by User Groups.
+
+```{r}
+# Add a column member_type to the reviewsUsers dataset for data visualisation
+users2 <- reviewsUsers %>% mutate( member_type = case_when(member_since < as.Date("2017-01-01") ~ "Veteran", between(member_since, as.Date("2017-01-01"), as.Date("2022-12-31")) ~ "Intermediate", member_since > as.Date("2022-12-31") ~ "New",
+        TRUE ~ NA_character_ # Handles NA values
+)) %>% drop_na(member_type) #remove NA values if required
+
+head(users2) #check if the data is correct
+# users2 is ready for visualisation
+```
+
+Visualisation of the Average Rating by User Groups. Boxplot is used since it can demonstrate the distribution and mean of each group.
+
+```{r}
+ggplot(users2, aes(x = member_type, y = stars, fill = member_type)) + geom_boxplot(outlier.shape = NA, alpha = 0.7) + labs(title = "Comparison of Average Rating by User Groups", x = "User Group", y = "Star Rating") + scale_fill_brewer(palette = "Set2") +theme_minimal(base_size = 14)
+```
+
+**Findings**\
+- There is no statistically significant difference between the means of average rating, and the distribution (IQR) across the group.\
+- Most of the ratings mostly fall around 3 which is similar to the table above.\
+
+Since there is less difference between the average rating, the distribution of rating will be further examined. Therefore, bar chart will be applied in this case to visualise the distribution of 3 user groups.
+
+```{r}
+#barplot visualising the count of rating stars by user groups
+ggplot(users2, mapping = aes(x = stars, fill = factor(member_type))) + geom_bar(position = "dodge", color = "black") +
+labs(title = "Distribution of Star Ratings by Member Type", x = "Star Rating",y = "Count") + theme_minimal() #note average_stars must be continuous variables to do histogram
+```
+
+**Findings:** From rating 1 to 5, the distribution across 3 user groups is relatively similar. This could potentially caused the least difference of their average rating between user groups.
+
+## 1.5) Conclusions:
+
+Three user groups have low differences between their average rating and average length of review.\
+Intermediate group has the dominant number of users with second position in average rating, indicating a relatively good engagement and behaviour.\
+New users with shorter time of joining but have the equivalent average length of reviews. They could be potential for future expansion of the community.\
