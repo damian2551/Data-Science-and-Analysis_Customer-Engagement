@@ -422,9 +422,11 @@ Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))
 Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
 ```
 
-Merging with average star and review count tables based on top 10 States having highest unique users. 
-```{r}
+Merging with average star and review count tables based on top 10 States having highest unique users.\
+
+```{r Top 10 States}
 Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avg_byState, by = "state")
+
 colnames(Top10_States) <- c("State", "Unique Users","Review Count","Average Stars")
 Top10_States #print output
 ```
@@ -691,7 +693,7 @@ reviewsTable <- reviewsUsers %>% group_by(user_id, name) %>%
 Top10_ReviewCount <- reviewsTable %>% arrange(desc(review_count))
 
 #rename the headers
-colnames(Top10_ReviewCount) <- c("User ID", "Name", "Review Count", "Average Rating", "Average Review Length") 
+colnames(Top10_ReviewCount) <- c("User Id", "Name", "Review Count", "Average Rating", "Average Review Length") 
 
 Top10_ReviewCount<- Top10_ReviewCount[1:10,] #pick top 10 users only 
 
@@ -714,7 +716,7 @@ To count the number of each rating from the top 10 users appropriately, the `Top
 **Note:** Duplicates are acceptable as there is a unique column to identify a particular row - review_id. A user can have multiple reviews
 
 ```{r}
-detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = c("User ID" = "user_id"))
+detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = c("User Id" = "user_id"))
 detailedRating #check the output
 ```
 
