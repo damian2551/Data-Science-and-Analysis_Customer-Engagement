@@ -409,3 +409,241 @@ common_10
 ```
 
 -   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
+
+
+## 2.5) Data Wrangling for businessPGB
+
+```{r}
+PGB <- read.csv("businessesPGB.csv")
+
+#examine data
+str(PGB)
+head(PGB)
+colSums(is.na(PGB)) #no NA values
+colSums((PGB=="")) #check if there are blank strings
+```
+
+**Conclusions:**\
+- There is no NA values from `PGB` dataset.\
+- There is blank strings from the dataset.\
+
+This step is to format the data:
+
+```{r}
+length(unique(PGB$business_id)) #to check whether all value in business_id is unique
+# conclusion: all business id is unique
+
+#format data, 
+PGB$state <- as.factor(PGB$state)
+PGB$categories <- as.factor(PGB$categories)
+PGB$business_group <- as.factor(PGB$business_group)
+
+#recheck if there are any NA values after formatting
+colSums(is.na(PGB))
+
+#removing any rows that have blank strings values for state
+cleaned_PGB <- PGB %>% filter(!is.na(state), state != "")
+colSums(is.na(cleaned_PGB))
+```
+
+## 2.6) The average review stars by State (PGB)
+
+```{r}
+#Calculate average raring by states
+avg_byStateB <- aggregate(PGB$stars, list(PGB$state), FUN = mean) 
+
+#Add column names for clarity in visualisation
+colnames(avg_byStateB) <- c("state", "mean_stars")
+avg_byState <- avg_byStateB %>% drop_na(c(state,mean_stars)) #Remove NA values in both columns
+
+#Visualisation
+ggplot(avg_byStateB, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = "identity")
+
+#count numbers of state
+length(unique(PGB$state)) #52
+```
+
+**Conclusion:** As mentioned in 2.2, only top 10 states by average review star will be considered for appropriate interpretability and further analysis afterward.
+
+```{r}
+#Select top 10 of PGB
+top10B <- avg_byStateB %>% arrange(desc(mean_stars)) %>% slice_head(n = 10)
+
+#Visualisation of top 10
+ggplot(top10B, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = "identity") + 
+  geom_text(aes(label = round(mean_stars, 3)), size = 3.5) + #adding numbers for better reading
+  coord_flip() +
+  labs(title = "Top 10 States by Average Review Stars", x = "State", y = "Average Stars") + theme_minimal() + theme(legend.position = "none")
+```
+
+## 2.7) The number of reviews and the number of unique users (PGB)
+
+To count unique number of users by state, joining database is required. Two datasets will be used joining - reviews and `PGB`. reviews will left join with `PGB` dataset as we need to calculate the number of reviews later on.\
+If we right join, some review data will be lost.\
+
+```{r}
+cleaned_PGB <- cleaned_PGB %>% drop_na(business_id) #remove any rows having missing business_id
+
+#joining reviews and PGA
+merge_PGB <- cleaned_reviews %>% left_join(cleaned_PGB, by = "business_id") %>% 
+  drop_na(c(user_id,state)) #remove any rows having missing user_id or states
+
+#recheck NA values or blank strings after joining
+colSums(is.na(merge_PGB))
+colSums((merge_PGB==""))
+```
+
+**Findings:**\
+- There are still blank strings values in business_id.\
+- Therefore, any rows with blank strings in business_id will be removed.\
+
+```{r}
+cleaned_merge_PGB <- merge_PGB %>% filter(!is.na(business_id), business_id != "")
+colSums((cleaned_merge_PGB==""))
+```
+
+After joining, duplicates are more likely to appear. This step is to check if there are any duplicates and whether they are acceptable.
+
+```{r}
+#check duplicated data 
+colSums(sapply(cleaned_merge_PGB, duplicated))
+```
+
+**Findings:**\
+- There is no NA values from the joint dataset - `cleaned_merge_PGB`.\
+- Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.\
+- Only user_id variable should be addressed if there are any duplicates for further analysis.\
+
+Count the number of unique users by States
+
+```{r}
+uniqueUserCountB <- cleaned_merge_PGB %>% distinct(user_id, state) %>% count(state, name = "unique_users") 
+head(uniqueUserCountB)
+```
+
+**Assumption:** A user can be in more than 1 States, as long as their user id is unique in that particular State.\
+
+Count the number of reviews by States
+
+```{r}
+#count based on numbers of review_id
+numReviewsB <- aggregate(review_id ~ state, data = cleaned_merge_PGB, FUN = length)
+
+colnames(numReviewsB) <- c("state", "review_count")
+
+# Convert state to factor variable
+numReviewsB$state <- as.factor(numReviewsB$state)
+numReviewsB <- numReviewsB %>% filter(!is.na(state), state != "") #Remove rows having blank strings in state
+head(numReviewsB)
+```
+
+Summary Table of Average Star, Count of Review, and Count of Unique Users by States.\
+**Note**: Count of Review and Count of Unique Users will be calculated based on the top 10 States having highest average rating.
+
+```{r}
+joined_dataB <- top10B %>% left_join(numReviewsB, by = "state") %>% left_join(uniqueUserCountB, by = "state") 
+
+colnames(joined_dataB) <- c("State", "Average Stars", "Review Count", "Unique Users") #rename headers
+
+#using kable to tabulate the top 10 States
+kable(joined_dataB, caption = "Summary of 10 States (PGB)", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE, position = "center")
+```
+
+**Findings**\
+- PA State has the highest number of average rating, but relatively low number in number of unique users and review count, indicating a good engagement on average per user here.\
+- DC while has the lowest average rating among top 10 but have the highest number of unique users and review count. Thus, the firm should come up with strategies to improve customer engagement here.\
+- WA state could be the optimal State for targeting as it ranked in the 5th in average rating, and have relatively high number of unique users and review count.\
+
+## 2.8) Visualisation of Unique Users by States (PGB)
+
+As there are 50 different States, only top 10 States having the highest number of unique users will be used.
+
+```{r}
+#Select top 10
+top10_UnqiueB <- uniqueUserCountB %>% arrange(desc(unique_users)) %>% drop_na(state) %>% slice_head(n = 10) 
+
+#visualisation
+ggplot(top10_UnqiueB, aes(x = reorder(state, unique_users), y = unique_users, fill = state)) + geom_bar(stat = "identity") + 
+  geom_text(aes(label = unique_users,  size = 3)) +
+  coord_flip() +
+  labs(title = "Top 10 States by Unique Users", x = "State", y = "Number of Unique Users") + theme_minimal() + theme(legend.position = "none")
+```
+
+**Findings:**\
+- As mentioned above, although DC has the highest number of unique users, its average rating is the lowest among top 10.\
+- The following states are the optimal ones between high average rating and high number of unique users in top 10, implying a high potential for targeting.\
+
+```{r}
+common_10B <- top10_UnqiueB %>% inner_join(top10B, by = "state")
+common_10B
+```
+
+-   OK, WA, and WV could be potential States for the firm's community expansion, with their relatively high and balanced ranks in both unique users and average stars.\
+
+## 2.9) Differences between PGA and PGB
+
+Create a summary data for both PGA and PGB, having 52 States describing both
+
+```{r}
+summaryPGA <- avgTable_byState %>% left_join(numReviews, by = "state") %>%
+  left_join(uniqueUserCount, by = "state") %>% mutate(Group = "PGA")  #add column Group to categorise
+
+summaryPGB <- avg_byStateB %>% left_join(numReviewsB, by = "state") %>% left_join(uniqueUserCountB, by = "state") %>% filter(!is.na(state), state != "") %>% mutate(Group = "PGB") 
+
+#review the data
+summaryPGA
+summaryPGB
+```
+
+Create a data combining all metrics from PGA and PGB
+
+```{r}
+StatesSummary <- bind_rows(summaryPGA, summaryPGB)
+head(StatesSummary)
+```
+
+### Comparison of Average Rating
+
+Average will be used as it is more representative for comparison. Top 10 States by average rating of PGA will be used as reference:
+
+```{r}
+top10_average <- top10 %>% inner_join(StatesSummary, by ="state")
+
+ggplot(top10_average, aes(x = state, y = mean_stars.y, fill = Group)) + geom_col(position = "dodge", width = 0.6) + theme_minimal() + theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "bottom") + labs(y = "Average Star Rating", title = "Comparison of Mean Star Ratings by State: PGA vs PGB")
+```
+
+**Findings:**\
+- There are slight differences between average rating by top 10 States.\
+- Only the average rating of LA from PGB is higher than the figure for PGA, while other States of PGA all have higher average stars.\
+
+### Comparison of Review Count and Unique Users
+
+```{r}
+#Visualisation of review count by 52 States
+ggplot(data = StatesSummary, aes(x = state, y = review_count, fill = Group)) + 
+  geom_col(position = position_dodge(width = 0.6), width = 0.5) + 
+  geom_line(aes(group = Group, color = Group), position = position_dodge(width = 0.6), size = 1) + 
+  scale_fill_manual(values = c("PGA" = "#1f77b4", "PGB" = "#ff7f0e")) + # Custom line colors
+  scale_color_manual(values = c("PGA" = "#1f77b4", "PGB" = "#ff7f0e")) +
+  theme_minimal() + theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "bottom") +
+  labs(y = "The Number of Reviews", title = "The Number of Reviews by States between PGA and PGB")
+
+
+#Visualisation of Unique Users by 52 States
+ggplot(data = StatesSummary, aes(x = state, y = unique_users, fill = Group)) + 
+  geom_col(position = position_dodge(width = 0.6), width = 0.5) + 
+  geom_line(aes(group = Group, color = Group), position = position_dodge(width = 0.6), size = 1) + 
+  scale_fill_manual(values = c("PGA" = "#1f77b4", "PGB" = "#ff7f0e")) + # Custom line colors
+  scale_color_manual(values = c("PGA" = "#1f77b4", "PGB" = "#ff7f0e")) +
+  theme_minimal() + theme(axis.text.x = element_text(angle = 60, hjust = 1),
+legend.position = "bottom") + 
+  labs(y = "The Number of Unique Users", title = "The Number of Unique Users by States between PGA and PGB")
+```
+
+**Findings:** Despite the differences in statistics of reviews and unique users, both PGA and PGB tend to have the same pattern of these metrics across the 50 States.
+
+## 2.10) Conclusions:
+
+In comparison with average rating, there are differences of average rating between PGA and PGB groups. Nevertheless, although the PGA's unique users and review count are higher than those of PGB, both groups have the same patterns in these metrics.
