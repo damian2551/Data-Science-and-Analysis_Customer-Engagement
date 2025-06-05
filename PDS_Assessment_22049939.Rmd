@@ -712,3 +712,118 @@ values = c("1" = "#d73027","2" = "#fc8d59","3" = "#fee08b","4" = "#d9ef8b","5" =
 
 ## 3.4) Conclusions:
 Despite being top 10 active users with highest review counts, their user engagement and behaviour is slightly low-quality as more than 60% of their ratings fall from 1 to 3 in rating stars.
+
+# Question 4:
+
+Write the code to analyse if there is a major difference between the review behavior of users who joined before and after 2020.
+
+## 4.1) Data Selection:
+
+For this question, reviewsUsers will be used again for the analysis.
+
+```{r}
+head(reviewsUsers)
+```
+
+## 4.2) Create 2 groups of users
+
+```{r}
+#Form 2 groups of users 
+before2020 <- reviewsUsers %>% filter(reviewsUsers$member_since < as.Date('2020-01-01'))
+head(before2020) #recheck data before proceeding
+
+after2020 <-reviewsUsers %>% filter(reviewsUsers$member_since >= as.Date('2020-01-01'))
+head(after2020) #recheck data before proceeding
+```
+
+## 4.3) Compare their star rating behaviour and the length of the reviews (number of characters in the review text).
+
+Create another column called text_count to count the numbers of characters in each review:
+
+```{r}
+#Auto change NA or blank strings into 0 in char_count
+before2020 <- before2020 %>% mutate(text = if_else(is.na(text) | 
+                    str_trim(text) == "", "", text), 
+                  char_count = if_else(text == "", 0L, nchar(text))) 
+
+after2020 <- after2020 %>% mutate(text = if_else(is.na(text) | 
+                    str_trim(text) == "", "", text), 
+                  char_count = if_else(text == "", 0L, nchar(text)))
+```
+
+Combine two user groups data for visualisation
+
+```{r}
+#add a column date_category to categorise before and after 2020
+merge_data <- reviewsUsers %>% mutate(member_type = if_else(as.Date(member_since) < as.Date("2020-01-01"), "before2020", "after2020")) %>% drop_na(member_type)
+
+#add a column char_count the merge_dataset
+merge_data<- merge_data %>% mutate(text = if_else(is.na(text) | 
+                    str_trim(text) == "", "", text), 
+                  char_count = if_else(text == "", 0L, nchar(text)))
+```
+
+```{r}
+#Compare average star rating 
+aggregate(stars~member_type, merge_data, mean)
+
+#more detailed with IQR, and min max
+summary(after2020$stars)
+summary(before2020$stars)
+```
+
+```{r}
+ggplot(merge_data, aes(x = stars, fill = member_type)) + 
+  geom_bar(position = "dodge") + 
+  labs(title = "Rating Behaviour Before and After 2020", x = "Rating", y = "Count") + scale_fill_manual(values = c("before2020" = "#1f77b4", "after2020" = "#ff7f0e")) +
+  theme_minimal(base_size = 14)
+```
+
+**Findings**\
+- Users joining after 2020 are more active with the community as their rating count (from 1 to 5) is all higher than those joining before 2020.\
+- Combining with mean in average star, users joining after 2020 have slightly higher average rating then those before 2020, indicating more engagement from this group.\
+
+Summarise review length:
+
+```{r}
+#Compare review length
+aggregate(char_count ~ member_type, merge_data, mean)
+
+#more detailed with IQR, and min max
+summary(after2020$char_count)
+summary(before2020$char_count)
+```
+
+Histogram visualise the distribution of character count
+
+```{r}
+ggplot(merge_data, aes(x = char_count, fill = member_type)) + 
+  geom_histogram(position = "identity", bins = 25) +
+  scale_fill_manual(values = c("before2020" = "#1f77b4", "after2020" = "#ff7f0e")) +
+  labs(title = "Review Length Before and After 2020",
+       x = "Review Length (Character Count)",
+       y = "Freqency") +
+  theme_minimal(base_size = 17)
+```
+
+**Findings**\
+- Despite having the same patterns of distribution, members joining after 2020 tend to review more requently than those before 2020, indicating active behaviours from after 2020 members.\
+- The gaps are particularly clear when review length starting from 25 to 50.\
+
+## 4.4) Visualise the average review length by the two groups.
+
+```{r}
+#visualise the average review length
+ggplot(merge_data, aes(x = member_type, y = char_count, fill = member_type)) + geom_boxplot() + labs(
+title = "Average Review Length Before and After 2020", x = "Member Type", y = "Review Length (Characters)") + scale_fill_manual(values = c("before2020" = "darkblue", "after2020" = "lightpink")) +
+  theme_minimal(base_size = 14) + theme(legend.position = "none")
+```
+
+**Findings:** \
+- Both of the groups has nearly equal mean in average review length. There distribution and IQR also have high similarity as well.\
+- Thus, there is no major differences between the distribution of average review length from users joining before and after 2020.\
+
+## 4.5) Conclusions:
+
+User engagement and behaviour of those joining after 2020 tend to be higher than those before 2020. They reviewed more frequently, and are more likely to have higher review length on each of their review.
+
