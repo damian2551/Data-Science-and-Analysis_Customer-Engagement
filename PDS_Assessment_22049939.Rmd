@@ -411,6 +411,7 @@ common_10
 -   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
 
 
+<<<<<<< HEAD
 ## 2.5) Data Wrangling for businessPGB
 
 ```{r}
@@ -827,3 +828,28 @@ title = "Average Review Length Before and After 2020", x = "Member Type", y = "R
 
 User engagement and behaviour of those joining after 2020 tend to be higher than those before 2020. They reviewed more frequently, and are more likely to have higher review length on each of their review.
 
+=======
+## 2.4a) New Test - Git Branch: 
+**Test objective: ** To identify any differences in States outcome if taking top 10 States having highest number of unique users as reference when merging.\
+ 
+```{r}
+#Create table having unique user count by States
+uniqueUserCount <- cleaned_merge_PGA %>% distinct(user_id, state) %>% count(state, name = "unique_users") 
+head(uniqueUserCount) #check data before proceeding
+```
+
+```{r}
+Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))
+Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
+```
+
+Merging with average star and review count tables based on top 10 States having highest unique users. 
+```{r}
+Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avg_byState, by = "state")
+colnames(Top10_States) <- c("State", "Unique Users","Review Count","Average Stars")
+Top10_States #print output
+```
+**Findings: **\
+- If sorting by top 10 unique users instead of average stars, three States that have relatively good rankings with unique users count, review count, and average rating are MO, HI, and OH. These are the optimal States for future targeting. \
+- TX State was removed from the outcome, indicating its low optimal performance if using number of unique users as reference. \
+>>>>>>> PGA_Testing
