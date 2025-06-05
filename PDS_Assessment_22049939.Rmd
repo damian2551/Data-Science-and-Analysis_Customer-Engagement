@@ -425,7 +425,7 @@ Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
 Merging with average star and review count tables based on top 10 States having highest unique users.\
 
 ```{r Top 10 States}
-Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avg_byState, by = "state")
+Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avgTable_byState, by = "state")
 
 colnames(Top10_States) <- c("State", "Unique Users","Review Count","Average Stars")
 Top10_States #print output
