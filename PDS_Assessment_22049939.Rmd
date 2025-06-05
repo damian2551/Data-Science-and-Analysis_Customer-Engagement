@@ -407,7 +407,7 @@ common_10
 
 -   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
 
-=======
+
 ## 2.4a) New Test - Git Branch: 
 **Test objective: ** To identify any differences in States outcome if taking top 10 States having highest number of unique users as reference when merging.\
  
@@ -431,10 +431,7 @@ Top10_States #print output
 **Findings: **\
 - If sorting by top 10 unique users instead of average stars, three States that have relatively good rankings with unique users count, review count, and average rating are MO, HI, and OH. These are the optimal States for future targeting. \
 - TX State was removed from the outcome, indicating its low optimal performance if using number of unique users as reference. \
->>>>>>> PGA_Testing
 
-
-<<<<<<< HEAD
 ## 2.5) Data Wrangling for businessPGB
 
 ```{r}
@@ -717,7 +714,7 @@ To count the number of each rating from the top 10 users appropriately, the `Top
 **Note:** Duplicates are acceptable as there is a unique column to identify a particular row - review_id. A user can have multiple reviews
 
 ```{r}
-detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = "user_id")
+detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = c("User ID" = "user_id"))
 detailedRating #check the output
 ```
 
@@ -839,7 +836,7 @@ ggplot(merge_data, aes(x = char_count, fill = member_type)) +
 ```{r}
 #visualise the average review length
 ggplot(merge_data, aes(x = member_type, y = char_count, fill = member_type)) + geom_boxplot() + labs(
-title = "Average Review Length Before and After 2020", x = "Member Type", y = "Review Length (Characters)") + scale_fill_manual(values = c("before2020" = "darkblue", "after2020" = "lightpink")) +
+title = "Average Review Length Before and After 2020", x = "Member Type", y = "Review Length (Characters)") + scale_fill_manual(values = c("before2020" = "lightblue", "after2020" = "lightpink")) +
   theme_minimal(base_size = 14) + theme(legend.position = "none")
 ```
 
