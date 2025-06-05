@@ -409,3 +409,18 @@ common_10
 ```
 
 -   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
+
+
+## 2.4a) New Test - Git Branch: 
+**Test objective: ** To identify any differences in States outcome if taking top 10 States having highest number of unique users as reference when merging.\
+ 
+```{r}
+#Create table having unique user count by States
+uniqueUserCount <- cleaned_merge_PGA %>% distinct(user_id, state) %>% count(state, name = "unique_users") 
+head(uniqueUserCount) #check data before proceeding
+```
+
+```{r}
+Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))
+Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
+```
