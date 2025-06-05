@@ -229,3 +229,183 @@ labs(title = "Distribution of Star Ratings by Member Type", x = "Star Rating",y 
 Three user groups have low differences between their average rating and average length of review.\
 Intermediate group has the dominant number of users with second position in average rating, indicating a relatively good engagement and behaviour.\
 New users with shorter time of joining but have the equivalent average length of reviews. They could be potential for future expansion of the community.\
+
+# Question 2:
+
+## 2.1) Data Wrangling for businessPGA
+
+```{r}
+PGA <- read.csv("businessesPGA.csv") #import data
+
+#examine data
+str(PGA)
+head(PGA)
+colSums(is.na(PGA)) #no NA values
+colSums((PGA=="")) #check if there are blank strings
+```
+
+**Findings:**\
+-There is no NA values from the dataset PGA. However, the important variables for further analysis have blank strings, they are state, business_id.\
+- Some variables should be changed to factor variable: state, categories, business_group.\
+
+This step is to format the data:
+
+```{r}
+length(unique(PGA$business_id)) #to check whether all value in business_id is unique
+
+#format data, 
+PGA$state <- as.factor(PGA$state)
+PGA$categories <- as.factor(PGA$categories)
+PGA$business_group <- as.factor(PGA$business_group)
+
+#recheck if there are any NA values after formatting
+colSums(is.na(PGA))
+
+#removing any rows that have blank strings values for state
+cleaned_PGA <- PGA %>% filter(!is.na(state), state != "")
+colSums(is.na(cleaned_PGA))
+```
+
+**Findings:** There is no NA values and blank strings after formatting. The dataset `cleaned_PGA` is ready to use
+
+## 2.2) The average reviews star by State (PGA)
+
+```{r}
+#Calculate average raring by states
+avgTable_byState <- aggregate(cleaned_PGA$stars, list(cleaned_PGA$state), FUN = mean) 
+
+#Add column names for clarity in visualisation
+colnames(avgTable_byState) <- c("state", "mean_stars")
+avgTable_byState <- avgTable_byState %>% drop_na(c(state,mean_stars)) %>% #Remove NA values in both columns
+  filter(!is.na(state), state != "")
+
+#Visualisation
+ggplot(avgTable_byState, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = "identity")
+
+#count numbers of state
+length(unique(PGA$state)) #52 (50 states, 1 DC, 1 Blank row calculated from blank string values)
+```
+
+**Findings:** As there are 50 different States, the plot lacks of clarity and interpretation from data. For appropriate interpretability, only top 10 States having highest average rating will be visualised for further analysis.
+
+```{r}
+#Select top 10
+top10 <- avgTable_byState %>% arrange(desc(mean_stars)) %>% slice_head(n = 10)
+
+#Visualisation of top 10
+ggplot(top10, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = "identity") + 
+  geom_text(aes(label = round(mean_stars, 3)), size = 3.5) + #adding numbers for better reading
+  coord_flip() +
+  labs(title = "Top 10 States by Average Review Stars", x = "State", y = "Average Stars") + theme_minimal() + theme(legend.position = "none")
+```
+
+**Findings**\
+- The average review stars are slightly different accross the states.\
+- Top 3 states with highest average rating are Texas, New York, and Milano.\
+
+## 2.3) The number of reviews and the number of unique users (PGA)
+
+To count unique number of users by state, joining database is required. Two datasets will be used joinining - reviews and `PGA`. reviews will left join with `PGA` dataset as we need to calculate the number of reviews later on.\
+If we right join, some review data will be lost.\
+
+```{r}
+cleaned_PGA <- cleaned_PGA %>% drop_na(business_id) #remove any rows having missing business_id
+
+#joining reviews and PGA
+merge_PGA <- cleaned_reviews %>% left_join(cleaned_PGA, by = "business_id") %>% 
+  drop_na(c(user_id,state)) #remove any rows having missing user_id or states
+
+#recheck NA values or blank strings after joining
+colSums(is.na(merge_PGA))
+colSums((merge_PGA==""))
+```
+
+**Findings:**\
+- There are still blank strings values in business_id.\
+- Therefore, any rows with blank strings in business_id will be removed.\
+
+```{r}
+cleaned_merge_PGA <- merge_PGA %>% filter(!is.na(business_id), business_id != "")
+colSums((cleaned_merge_PGA==""))
+```
+
+After joining, duplicates are more likely to appear. This step is to check if there are any duplicates and whether they are acceptable
+
+```{r}
+#check duplicated data 
+colSums(sapply(cleaned_merge_PGA, duplicated))
+```
+
+**Findings:**\
+- There is no NA values from the joint dataset - `cleaned_merge_PGA`.\
+- Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.\
+- Only user_id variable should be addressed if there are any duplicates for further analysis.\
+
+Count the number of unique users by States
+
+```{r}
+uniqueUserCount <- cleaned_merge_PGA %>% distinct(user_id, state) %>% count(state, name = "unique_users") 
+head(uniqueUserCount)
+```
+
+**Assumption:** A user can be in more than 1 States, as long as their user id is unique in that particular State.\
+
+Count the number of reviews by States
+
+```{r}
+#count based on numbers of review_id
+numReviews <- aggregate(review_id ~ state, data = cleaned_merge_PGA, FUN = length)
+
+colnames(numReviews) <- c("state", "review_count")
+
+# Convert state to factor variable
+numReviews$state <- as.factor(numReviews$state)
+numReviews <- numReviews %>% filter(!is.na(state), state != "") #Remove rows having blank strings in state
+head(numReviews)
+```
+
+Summary Table of Average Star, Count of Review, and Count of Unique Users by States **Note**: Count of Review and Count of Unique Users will be calculated based on the top 10 States having highest average rating.
+
+```{r}
+joined_data <- top10 %>% left_join(numReviews, by = "state") %>% left_join(uniqueUserCount, by = "state")
+
+colnames(joined_data) <- c("State", "Average Stars", "Review Count", "Unique Users")
+
+#using kable to tabulate the top 10 States
+kable(joined_data, caption = "Summary of 10 States (PGA)", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE, position = "center")
+
+```
+
+**Findings**\
+- Texas (TX) with the highest average rating also has the relatively high number of number of unique users and reviews, indicating a positive and active engagement from users in this state.\
+- Ohio (OH) has the highest number number of unique users and reviews and ranked in 4 out of 10 among top rating States. The company could take advantages of this high number of users for future expansion.\
+- Indiana (IN) has a lowest rating among top 10, and quite low number of unique users and review count, indicating low potential. Thus, the company should not prioritise IN over other States in top 10.\
+
+## 2.4) Visualisation of Unique users by State (PGA)
+
+As there are 51 different States, only top 10 States having the highest number of unique users will be used.
+
+```{r}
+#Select top 10
+top10_Unqiue <- uniqueUserCount %>% arrange(desc(unique_users)) %>% drop_na(state) %>% slice_head(n = 10) 
+
+#visualisation
+ggplot(top10_Unqiue, aes(x = reorder(state, unique_users), y = unique_users, fill = state)) + geom_bar(stat = "identity") + 
+  geom_text(aes(label = unique_users,  size = 3)) +
+  coord_flip() +
+  labs(title = "Top 10 States by Unique Users", x = "State", y = "Number of Unique Users") + theme_minimal() + theme(legend.position = "none")
+```
+
+**Findings:**\
+- As ranked in the third for number of unique users, along with its relatively high rank in average rating, Ohio could be the potential State with high number of user and high engagement. The company should consider OH for future targeting.\
+
+(Find the common State in top 10 by average rating and unique users)
+
+```{r}
+common_10 <- top10_Unqiue %>% inner_join(top10, by = "state")
+common_10
+```
+
+-   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
