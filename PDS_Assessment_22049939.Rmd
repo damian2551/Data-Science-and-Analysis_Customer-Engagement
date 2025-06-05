@@ -5,14 +5,11 @@ date: "2025-05-07"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 **Assumptions**\
 - Any rows having NA or blank strings in user_id or review_id will be removed as they are not meaningful for further calculations.\
 - Other variables which are not used in the analysis but having NA or blank strings may not need to be removed.\
-- In reviews dataset, users are assumed to be in the same State with the business they reviewed. 
+- In reviews dataset, users are assumed to be in the same State with the business they reviewed.\
 
 **Packages installation**
 
