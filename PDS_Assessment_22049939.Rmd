@@ -647,3 +647,68 @@ legend.position = "bottom") +
 ## 2.10) Conclusions:
 
 In comparison with average rating, there are differences of average rating between PGA and PGB groups. Nevertheless, although the PGA's unique users and review count are higher than those of PGB, both groups have the same patterns in these metrics.
+
+# Question 3:
+
+## 3.1) Dataset selection for analysis
+
+For this question, reviewsUsers will be used for the analysis.
+
+```{r}
+head(reviewsUsers)
+```
+
+## 3.2) Top 10 users by the review count, and their average review stars accordingly
+
+```{r}
+#Top 10 users by review count
+reviewsTable <- reviewsUsers %>% group_by(user_id, name) %>% 
+  filter(!is.na(name), name != "") %>% #remove any blank strings or NA in names
+  summarise(review_count = n(), avg_starRating = mean(stars, na.rm = TRUE), 
+            avg_reviewLength = mean(nchar(text), na.rm = TRUE)) #add and calculate new columns -review count, average review stars, average review length
+
+Top10_ReviewCount <- reviewsTable %>% arrange(desc(review_count))
+
+#rename the headers
+colnames(Top10_ReviewCount) <- c("User ID", "Name", "Review Count", "Average Rating", "Average Review Length") 
+
+Top10_ReviewCount<- Top10_ReviewCount[1:10,] #pick top 10 users only 
+
+#Tabulate the summary of the data (kable/kableextra).
+kable(Top10_ReviewCount, caption = "Top 10 Users by Number of Reviews and Their Average Rating", digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE,
+                position = "center")
+```
+
+**Findings:**\
+- There is less significant differences between review count from top 10 users, while there are considerable differences between their average rating and average texts for review.\
+- Even customer Rebecca (u_27070) has the highest review count (18), this customer has low average rating and average review length compared to others, indicating a low-quality engagement from them.\
+- Customer Christopher and Rebecca (u_29224) could be potential customers with high engagement, as they have relative high balance between their review count and average rating for each review. Their average review length, particularly of Christopher is high in comparison to other top 10.\
+- Customer Andrew has the lowest average stars even has quite high review count, indicating low-quality engagement from them. The company should come up with further strategy improving their engagements.\
+
+## 3.3) Visualisation of their rating distrubtion (using ggplot2)
+
+To count the number of each rating from the top 10 users appropriately, the `Top10_ReviewCount` data will left join the `cleaned_reviews` dataset.\
+**Note:** Duplicates are acceptable as there is a unique column to identify a particular row - review_id. A user can have multiple reviews
+
+```{r}
+detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = "user_id")
+detailedRating #check the output
+```
+
+The Visualisation of Rating Distribution
+
+```{r}
+ggplot(detailedRating, aes(x = factor(stars), fill = factor(stars))) +
+geom_bar() + scale_fill_manual(
+values = c("1" = "#d73027","2" = "#fc8d59","3" = "#fee08b","4" = "#d9ef8b","5" = "#91cf60"), name = "Star Rating") + 
+  labs(title = "Rating Distribution for Top 10 Users", x = "Star Rating", y = "Count") + theme_minimal(base_size = 14)
+```
+
+**Findings**\
+- Overall, the engagement from top 10 active users tend be moderate from low rather than positive engagement. - The number of low rating (1-2) tend to be higher than high rating (4-5), indicating a quite low engagement despite being these top 10 active users.\
+- The number of rating 3 for reviews is the highest across all star levels. This indicates the moderate experience from these top 10 users with the community.\
+
+## 3.4) Conclusions:
+Despite being top 10 active users with highest review counts, their user engagement and behaviour is slightly low-quality as more than 60% of their ratings fall from 1 to 3 in rating stars.
