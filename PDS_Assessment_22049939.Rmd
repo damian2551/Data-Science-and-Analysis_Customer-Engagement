@@ -424,3 +424,13 @@ head(uniqueUserCount) #check data before proceeding
 Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))
 Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
 ```
+
+Merging with average star and review count tables based on top 10 States having highest unique users. 
+```{r}
+Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avg_byState, by = "state")
+colnames(Top10_States) <- c("State", "Unique Users","Review Count","Average Stars")
+Top10_States #print output
+```
+**Findings: **\
+- If sorting by top 10 unique users instead of average stars, three States that have relatively good rankings with unique users count, review count, and average rating are MO, HI, and OH. These are the optimal States for future targeting. \
+- TX State was removed from the outcome, indicating its low optimal performance if using number of unique users as reference. \
