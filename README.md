@@ -1,5 +1,5 @@
 ---
-title: "Data Science and Analytic Project"
+title: "Data Science and Analysis Project"
 author: "Damian Nguyen"
 date: "2025-05-07"
 output: pdf_document
