@@ -14,24 +14,22 @@ knitr::opts_chunk$set(echo = TRUE)
 - Other variables which are not used in the analysis but having NA or blank strings may not need to be removed.\
 - In reviews dataset, users are assumed to be in the same State with the business they reviewed. 
 
-**Packages installation**
+# Part 1
 
-```{r setup}
-library(tidyverse)
-library(knitr)
-library(ggplot2)
-library(dplyr)
-library(kableExtra)
-```
+**Objective:**
 
-# Question 1
+-    Analyse the review behaviour across user groups. Users should be grouped into 3 groups: Veteran, Intermediate and New (based on their member since date) before 2017, between 2017-2022, and after 2022 respectively.
+
+-   Calculate the numbers of users, their average review stars and average number of reviews per user across the three user groups
+
+-   Visualise the Average Review Stars by User Groups
 
 ## 1.1) Data Wrangling
 
 For this question, users dataset will be used. The first step is to review the dataset, and then format data if required.
 
 ```{r}
-users <- read.csv("users.csv") #import data
+users <- read.csv("Datasets/users.csv") #import data
 
 #Review data
 head(users)
@@ -41,22 +39,21 @@ colSums(is.na(users)) #count if there are any NA values in each column
 colSums(users == "") #count if there are any blank strings ("") in each column
 ```
 
-**Findings:** Despite there is no NA values from the users dataset, the following columns - user_id, name, member_since have the blank strings ("").\
-\
+**Findings:** Despite there is no NA values from the `users` dataset, the following columns - user_id, name, member_since have the blank strings ("").\
 
 Reviewing top 15 users by review_count:
 
-```{r}
+```{r, echo = FALSE}
 top15_ReviewCount <- users %>%  arrange(desc(review_count)) %>% select(name, review_count) %>% head(15)
 top15_ReviewCount
 ```
 
-**Conclusion:** Since top 15 users have the same number of review count (99) which is not meaningful for intepretation afterward. users dataset will be merged with reviews dataset for better analaysis.\
+**Findings:** Since top 15 users have the **same number of review count (99)** which is not meaningful for interpretation afterward, users dataset will be merged with reviews dataset for a comprehensive and meaningful analysis.\
 
-Before joining, reviews data would be examined for usability:
+Before joining, `reviews` data would be examined for usability:
 
 ```{r}
-reviews <- read.csv("reviews.csv") #import reviews dataset
+reviews <- read.csv("Datasets/reviews.csv") #import reviews dataset
 
 #Examine data
 str(reviews)
@@ -69,10 +66,13 @@ colSums((reviews==""))
 colSums(sapply(reviews, duplicated))
 ```
 
-**Conclusion**\
-- There is no NA values from the reviews dataset. However, there are empty string values in review_id user_id.\
-- Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.\
-- Only user_id variable should be addressed if there are any duplicates for further analysis.\
+**Findings:**
+
+-   There is no NA values from the `reviews` dataset. However, there are empty string values in review_id user_id.
+
+-   Despite having duplicated in other values, the `review_id` which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.
+
+-   Only `user_id` variable should be addressed if there are any duplicates for further analysis.\
 
 Remove any rows having empty strings values in user_id and review_id from reviews for further analysis:
 
@@ -81,7 +81,7 @@ cleaned_reviews <- reviews %>% filter(review_id != "") %>% filter(user_id != "")
 colSums((cleaned_reviews==""))
 ```
 
-**Joint data:** reviews will left joint with `users` since a user can review multiple times. Therefore, this approach will ensure not missing any review_id, which will be used for counting the number of review later per user later on.
+**Joint data:** `reviews`will left joint with `users` since a user can review multiple times. Therefore, this approach will ensure **not missing any review_id**, which will be used for counting the number of review later per user later on.
 
 ```{r}
 reviewsUsers <- cleaned_reviews %>% left_join(users, by = c("user_id" = "user_id"))
@@ -90,14 +90,16 @@ head(reviewsUsers)
 
 ## 1.2) Three User Groups:
 
-After checking, the variable member_since should be formatted to Date variable in order to categorise into three groups later on
+After checking, the variable `member_since` should be formatted to Date variable in order to categorise into three groups later on:
 
 ```{r}
 reviewsUsers$member_since <- as.Date(reviewsUsers$member_since) #change to Date variable.
 head(reviewsUsers$member_since) #double check the reformatted member_since
 ```
 
-This step is to create 3 different user groups - Veteran, Intermediate and New based on their joining date, using member_since Note: When filtering, blank strings are automatically transferred to NA values, and will be removed using drop_na().
+This step is to create 3 different user groups - Veteran, Intermediate and New based on their joining date, using member_since
+
+**Note**: When filtering, blank strings are automatically transferred to NA values, and will be removed using drop_na().
 
 ```{r}
 Veteran <- reviewsUsers %>%
@@ -116,11 +118,52 @@ sum(is.na(Intermediate$user_id))
 sum(is.na(New$user_id))
 ```
 
-Conclusion:\
--There are no NA values in three datasets - Veteran, Intermediate and New.\
--The three datasets are ready for further analysis.\
+**Findings:**
+
+-   There are no NA values in three datasets - `Veteran`, `Intermediate` and `New`.
+
+-   The three datasets are ready for further analysis.\
 
 ## 1.3) Calculate the numbers of users, their average review stars and average number of reviews per user.
+
+Create a `calculation` function to calculate the numbers of users, their average review stars and average number of reviews per user
+
+```{r}
+calculation <- function(dataset) {
+  dataset %>%
+    summarise(
+      avgStar = round(mean(stars, na.rm = TRUE),4),
+      numUniqueUsers = n_distinct(user_id),
+      avgReviewCount = round((length(dataset$review_id) / numUniqueUsers),4)
+    )
+}
+
+SummaryVeteran <- calculation(Veteran)
+SummaryIntermediate<- calculation(Intermediate)
+SummaryNew<-calculation(New)
+```
+
+**Note**: Since the goal is to calculate the average number of reviews **per user**, unique number of users will be used instead of the number of user as a whole.\
+
+Create a summary table for three user groups:
+
+```{r, warning=FALSE}
+#Create a summary
+summary <- bind_rows(
+  Veteran = SummaryVeteran,
+  Intermediate = SummaryIntermediate,
+  New = SummaryNew,
+  .id = "Group"
+)
+
+# Display with table using kable()
+kable(summary, caption = "User Summary by Groups", digits = 3) %>% #round to 3 decimals
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                full_width = FALSE,
+                position = "center")
+```
+
+### 1.3a Manual calculation (for checking)
 
 Calculate the number of unique users
 
@@ -158,18 +201,16 @@ avg_Intermediate <- as.numeric(avg_Intermediate)
 avg_New <- as.numeric(avg_New)
 ```
 
-Since the goal is to calculate the average number of reviews **per user**, unique number of users will be used instead of the number of user as a whole.
-
 ```{r}
-#average review count - unique r
+#average review count using number unique of users
 avgReCount_Veteran <- length(Veteran$review_id) / numVeteran
 avgReCount_Intermediate <- length(Intermediate$review_id) / numIntermediate
 avgReCount_New <- length(New$review_id) / numNew
 ```
 
-Tabulate the data using kable:
+Tabulate the data using kable():
 
-```{r}
+```{r, warning = FALSE}
 # Create a summary data frame
 summaryTable <- data.frame(row.names = Group <- c("Veteran", "Intermediate", "New"),
   Number_of_Unique_Users = c(numVeteran, numIntermediate, numNew),
@@ -185,12 +226,19 @@ kable(summaryTable, caption = "User Summary by Groups", digits = 3) %>% #round t
                 position = "center")
 ```
 
-**Findings**\
-- Intermediate has a highest number of members (`r numIntermediate`), while Veteran has the lowest number.\
-- There are less significant differences between their average review length, indicating similar user behaviours across three groups.\
-- However, as old users (Veteran), their average review should be higher compared to other groups, while their figure is the lowest, indicating quite low user behaviour from this group. - Given the considerable number of members, Intermediate average rating is the second-highest, implying a good engagement from this group.\
-- The average rating from Veteran (old customers) is the lowest, along with low average review length, implying their low engagement with the community.\
-- The average review star of New users is the highest, along with their second-highest position in number of unique users, indicating a good engagement from them and good attraction from the community recently.\
+**Findings**
+
+-   Intermediate has a highest number of members (`r numIntermediate`), while Veteran has the lowest number (`r numVeteran`).
+
+-   There are less significant differences between their average review length, indicating similar user behaviours across three groups.
+
+-   However, as old users (`Veteran`), their average review should be higher compared to other groups, while their figure is the lowest, indicating quite low user behaviour from this group.
+
+-   Given the considerable number of members, Intermediate's average rating is the second-highest, implying a good engagement from this group.
+
+-   The average rating from `Veteran` (old customers) is the lowest, along with low average review length, implying their low engagement with the community.
+
+-   The average review star of `New` users is the highest, along with their second-highest position in number of unique users, indicating a good engagement from them and good attraction from the community recently.\
 
 ## 1.4) Visualisation of Average Review Stars by User Groups.
 
@@ -210,9 +258,11 @@ Visualisation of the Average Rating by User Groups. Boxplot is used since it can
 ggplot(users2, aes(x = member_type, y = stars, fill = member_type)) + geom_boxplot(outlier.shape = NA, alpha = 0.7) + labs(title = "Comparison of Average Rating by User Groups", x = "User Group", y = "Star Rating") + scale_fill_brewer(palette = "Set2") +theme_minimal(base_size = 14)
 ```
 
-**Findings**\
-- There is no statistically significant difference between the means of average rating, and the distribution (IQR) across the group.\
-- Most of the ratings mostly fall around 3 which is similar to the table above.\
+**Findings**
+
+-   There is no statistically significant difference between the means of average rating, and the distribution (IQR) across the group.
+
+-   Most of the ratings mostly fall around 3 which is similar to the table above.\
 
 Since there is less difference between the average rating, the distribution of rating will be further examined. Therefore, bar chart will be applied in this case to visualise the distribution of 3 user groups.
 
@@ -230,12 +280,18 @@ Three user groups have low differences between their average rating and average 
 Intermediate group has the dominant number of users with second position in average rating, indicating a relatively good engagement and behaviour.\
 New users with shorter time of joining but have the equivalent average length of reviews. They could be potential for future expansion of the community.\
 
-# Question 2:
+# Part 2:
+
+**Objective:**
+
+-   Calculate the average review star, the number of review, and the number of unique users of all States.
+
+-   Compare the differences between 2 given datasets - `PGA` and `PGB` based on the the average review star, the number of review, and the number of unique users.
 
 ## 2.1) Data Wrangling for businessPGA
 
 ```{r}
-PGA <- read.csv("businessesPGA.csv") #import data
+PGA <- read.csv("Datasets/businessesPGA.csv") #import data
 
 #examine data
 str(PGA)
@@ -244,9 +300,11 @@ colSums(is.na(PGA)) #no NA values
 colSums((PGA=="")) #check if there are blank strings
 ```
 
-**Findings:**\
--There is no NA values from the dataset PGA. However, the important variables for further analysis have blank strings, they are state, business_id.\
-- Some variables should be changed to factor variable: state, categories, business_group.\
+**Findings:**
+
+-   There is no NA values from the dataset `PGA`. However, the important variables for further analysis have blank strings, they are state, business_id.
+
+-   Some variables should be changed to factor variable: state, categories, business_group.\
 
 This step is to format the data:
 
@@ -281,12 +339,9 @@ avgTable_byState <- avgTable_byState %>% drop_na(c(state,mean_stars)) %>% #Remov
 
 #Visualisation
 ggplot(avgTable_byState, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = "identity")
-
-#count numbers of state
-length(unique(PGA$state)) #52 (50 states, 1 DC, 1 Blank row calculated from blank string values)
 ```
 
-**Findings:** As there are 50 different States, the plot lacks of clarity and interpretation from data. For appropriate interpretability, only top 10 States having highest average rating will be visualised for further analysis.
+**Findings:** As there are 50 different States, the plot lacks of clarity and interpretation from data. For appropriate interpretability, **only top 10 States having highest average rating** will be visualised for further analysis.
 
 ```{r}
 #Select top 10
@@ -299,14 +354,17 @@ ggplot(top10, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state))
   labs(title = "Top 10 States by Average Review Stars", x = "State", y = "Average Stars") + theme_minimal() + theme(legend.position = "none")
 ```
 
-**Findings**\
-- The average review stars are slightly different accross the states.\
-- Top 3 states with highest average rating are Texas, New York, and Milano.\
+**Findings:**
+
+-   The average review stars are slightly different across the states.
+
+-   Top 3 states with highest average rating are Texas, New York, and Milanno.\
 
 ## 2.3) The number of reviews and the number of unique users (PGA)
 
-To count unique number of users by state, joining database is required. Two datasets will be used joinining - reviews and `PGA`. reviews will left join with `PGA` dataset as we need to calculate the number of reviews later on.\
-If we right join, some review data will be lost.\
+To count unique number of users by state, joining database is required. Two datasets will be used joinining - `reviews` and `PGA`.
+
+`reviews` will left join with `PGA` dataset as we need to calculate the number of reviews later on. Otherwise, some `review` data will be lost when doing right joint.
 
 ```{r}
 cleaned_PGA <- cleaned_PGA %>% drop_na(business_id) #remove any rows having missing business_id
@@ -320,16 +378,18 @@ colSums(is.na(merge_PGA))
 colSums((merge_PGA==""))
 ```
 
-**Findings:**\
-- There are still blank strings values in business_id.\
-- Therefore, any rows with blank strings in business_id will be removed.\
+**Findings:**
+
+-   There are still blank strings values in business_id.
+
+-   Therefore, any rows with blank strings in business_id will be removed.
 
 ```{r}
 cleaned_merge_PGA <- merge_PGA %>% filter(!is.na(business_id), business_id != "")
 colSums((cleaned_merge_PGA==""))
 ```
 
-After joining, duplicates are more likely to appear. This step is to check if there are any duplicates and whether they are acceptable
+After joining, duplicates are more likely to appear. This step is to check if there are any duplicates and whether they are acceptable:
 
 ```{r}
 #check duplicated data 
@@ -364,9 +424,11 @@ numReviews <- numReviews %>% filter(!is.na(state), state != "") #Remove rows hav
 head(numReviews)
 ```
 
-Summary Table of Average Star, Count of Review, and Count of Unique Users by States **Note**: Count of Review and Count of Unique Users will be calculated based on the top 10 States having highest average rating.
+Summary Table of Average Star, Count of Review, and Count of Unique Users by States 
 
-```{r}
+**Note**: Count of Review and Count of Unique Users will be calculated based on the top 10 States having highest average rating as aforementioned.
+
+```{r, warning = FALSE}
 joined_data <- top10 %>% left_join(numReviews, by = "state") %>% left_join(uniqueUserCount, by = "state")
 
 colnames(joined_data) <- c("State", "Average Stars", "Review Count", "Unique Users")
@@ -401,18 +463,19 @@ ggplot(top10_Unqiue, aes(x = reorder(state, unique_users), y = unique_users, fil
 **Findings:**\
 - As ranked in the third for number of unique users, along with its relatively high rank in average rating, Ohio could be the potential State with high number of user and high engagement. The company should consider OH for future targeting.\
 
-(Find the common State in top 10 by average rating and unique users)
+Find the common States having high average rating and unique users from the top 10 datasets:
 
 ```{r}
 common_10 <- top10_Unqiue %>% inner_join(top10, by = "state")
 common_10
 ```
 
--   HI and MO also have the highest number of users from the community, indicating a potential base for expansion as well.\
+**Findings:** OH has both the optimal balance between the number of unique users and average rating, indicating a potential base for expansion as well.
 
-## 2.4a) New Test - Git Branch: 
-**Test objective: ** To identify any differences in States outcome if taking top 10 States having highest number of unique users as reference when merging.\
- 
+## 2.4a) New Test - Git Branch:
+
+**Test objective:** To identify any differences in States outcome if taking top 10 States having highest number of unique users as reference when merging.\
+
 ```{r}
 #Create table having unique user count by States
 uniqueUserCount <- cleaned_merge_PGA %>% distinct(user_id, state) %>% count(state, name = "unique_users") 
@@ -424,21 +487,25 @@ Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))
 Top10_UniqueUsers[1:10,] #pick top 10 after sort descending
 ```
 
-Merging with average star and review count tables based on top 10 States having highest unique users. 
-```{r}
-Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avg_byState, by = "state")
+Merging with average star and review count tables based on top 10 States having highest unique users.\
+
+```{r Top 10 States}
+Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = "state") %>% left_join(avgTable_byState, by = "state")
+
 colnames(Top10_States) <- c("State", "Unique Users","Review Count","Average Stars")
 Top10_States #print output
 ```
-**Findings: **\
-- If sorting by top 10 unique users instead of average stars, three States that have relatively good rankings with unique users count, review count, and average rating are MO, HI, and OH. These are the optimal States for future targeting. \
-- TX State was removed from the outcome, indicating its low optimal performance if using number of unique users as reference. \
 
+**Findings:**
+
+-   If sorting by top 10 unique users instead of average stars, three States that have relatively good rankings with unique users count, review count, and average rating are MO, HI, and OH. These are the optimal States for future targeting.
+
+-   TX State was removed from the outcome, indicating its low optimal performance if using number of unique users as reference.\
 
 ## 2.5) Data Wrangling for businessPGB
 
 ```{r}
-PGB <- read.csv("businessesPGB.csv")
+PGB <- read.csv("Datasets/businessesPGB.csv")
 
 #examine data
 str(PGB)
@@ -447,9 +514,11 @@ colSums(is.na(PGB)) #no NA values
 colSums((PGB=="")) #check if there are blank strings
 ```
 
-**Conclusions:**\
-- There is no NA values from `PGB` dataset.\
-- There is blank strings from the dataset.\
+**Findings:**\
+
+-   There is no NA values from `PGB` dataset.
+
+-   There is blank strings from the dataset.\
 
 This step is to format the data:
 
@@ -470,7 +539,7 @@ cleaned_PGB <- PGB %>% filter(!is.na(state), state != "")
 colSums(is.na(cleaned_PGB))
 ```
 
-## 2.6) The average review stars by State (PGB)
+## 2.6) The average review stars by States (PGB)
 
 ```{r}
 #Calculate average raring by states
@@ -487,7 +556,7 @@ ggplot(avg_byStateB, aes(x = reorder(state, mean_stars), y = mean_stars, fill = 
 length(unique(PGB$state)) #52
 ```
 
-**Conclusion:** As mentioned in 2.2, only top 10 states by average review star will be considered for appropriate interpretability and further analysis afterward.
+**Conclusion:** As mentioned in 2.2, only top 10 states by average review star will be considered for an appropriate interpretability and further analysis afterward.
 
 ```{r}
 #Select top 10 of PGB
@@ -502,8 +571,9 @@ ggplot(top10B, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)
 
 ## 2.7) The number of reviews and the number of unique users (PGB)
 
-To count unique number of users by state, joining database is required. Two datasets will be used joining - reviews and `PGB`. reviews will left join with `PGB` dataset as we need to calculate the number of reviews later on.\
-If we right join, some review data will be lost.\
+To count unique number of users by state, joining database is required. Two datasets will be used joining - `reviews` and `PGB`.
+
+`reviews` will left join with `PGB` dataset as we need to calculate the number of reviews later on. Otherwise, some `review` data will be lost when doing right join.\
 
 ```{r}
 cleaned_PGB <- cleaned_PGB %>% drop_na(business_id) #remove any rows having missing business_id
@@ -517,9 +587,11 @@ colSums(is.na(merge_PGB))
 colSums((merge_PGB==""))
 ```
 
-**Findings:**\
-- There are still blank strings values in business_id.\
-- Therefore, any rows with blank strings in business_id will be removed.\
+**Findings:**
+
+-   There are still blank strings values in business_id.
+
+-   Therefore, any rows with blank strings in business_id will be removed.\
 
 ```{r}
 cleaned_merge_PGB <- merge_PGB %>% filter(!is.na(business_id), business_id != "")
@@ -533,10 +605,13 @@ After joining, duplicates are more likely to appear. This step is to check if th
 colSums(sapply(cleaned_merge_PGB, duplicated))
 ```
 
-**Findings:**\
-- There is no NA values from the joint dataset - `cleaned_merge_PGB`.\
-- Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.\
-- Only user_id variable should be addressed if there are any duplicates for further analysis.\
+**Findings:**
+
+-   There is no NA values from the joint dataset `cleaned_merge_PGB`.
+
+-   Despite having duplicated in other values, the review_id which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.
+
+-   Only user_id variable should be addressed if there are any duplicates for further analysis.\
 
 Count the number of unique users by States
 
@@ -547,7 +622,7 @@ head(uniqueUserCountB)
 
 **Assumption:** A user can be in more than 1 States, as long as their user id is unique in that particular State.\
 
-Count the number of reviews by States
+Count the number of reviews by States:
 
 ```{r}
 #count based on numbers of review_id
@@ -564,7 +639,7 @@ head(numReviewsB)
 Summary Table of Average Star, Count of Review, and Count of Unique Users by States.\
 **Note**: Count of Review and Count of Unique Users will be calculated based on the top 10 States having highest average rating.
 
-```{r}
+```{r, warning = FALSE}
 joined_dataB <- top10B %>% left_join(numReviewsB, by = "state") %>% left_join(uniqueUserCountB, by = "state") 
 
 colnames(joined_dataB) <- c("State", "Average Stars", "Review Count", "Unique Users") #rename headers
@@ -575,10 +650,13 @@ kable(joined_dataB, caption = "Summary of 10 States (PGB)", digits = 3) %>%
                 full_width = FALSE, position = "center")
 ```
 
-**Findings**\
-- PA State has the highest number of average rating, but relatively low number in number of unique users and review count, indicating a good engagement on average per user here.\
-- DC while has the lowest average rating among top 10 but have the highest number of unique users and review count. Thus, the firm should come up with strategies to improve customer engagement here.\
-- WA state could be the optimal State for targeting as it ranked in the 5th in average rating, and have relatively high number of unique users and review count.\
+**Findings**
+
+-   PA State has the highest number of average rating, but relatively low number in number of unique users and review count, indicating a good engagement on average per user here.
+
+-   DC while has the lowest average rating among top 10 but have the highest number of unique users and review count. Thus, the firm should come up with strategies to improve customer engagement here.
+
+-   WA state could be the optimal State for targeting as it ranked in the 5th in average rating, and have relatively high number of unique users and review count.\
 
 ## 2.8) Visualisation of Unique Users by States (PGB)
 
@@ -595,20 +673,22 @@ ggplot(top10_UnqiueB, aes(x = reorder(state, unique_users), y = unique_users, fi
   labs(title = "Top 10 States by Unique Users", x = "State", y = "Number of Unique Users") + theme_minimal() + theme(legend.position = "none")
 ```
 
-**Findings:**\
-- As mentioned above, although DC has the highest number of unique users, its average rating is the lowest among top 10.\
-- The following states are the optimal ones between high average rating and high number of unique users in top 10, implying a high potential for targeting.\
+**Findings:**
+
+-   As mentioned above, although DC has the highest number of unique users, its average rating is the lowest among top 10.
+
+-   Thus, the following states are the optimal ones between high average rating and high number of unique users in top 10:
 
 ```{r}
 common_10B <- top10_UnqiueB %>% inner_join(top10B, by = "state")
 common_10B
 ```
 
--   OK, WA, and WV could be potential States for the firm's community expansion, with their relatively high and balanced ranks in both unique users and average stars.\
+**Findings:** DC, OK, WA, and WV could be potential States for the firm's community expansion, with their relatively high and balanced ranks in both unique users and average stars.\
 
 ## 2.9) Differences between PGA and PGB
 
-Create a summary data for both PGA and PGB, having 52 States describing both
+Create a summary data for both PGA and PGB. The summary includes all States describing all of the metrics - average rating, count of review, and number of unique users:
 
 ```{r}
 summaryPGA <- avgTable_byState %>% left_join(numReviews, by = "state") %>%
@@ -621,7 +701,7 @@ summaryPGA
 summaryPGB
 ```
 
-Create a data combining all metrics from PGA and PGB
+Create a data combining all metrics from PGA and PGB:
 
 ```{r}
 StatesSummary <- bind_rows(summaryPGA, summaryPGB)
@@ -630,7 +710,7 @@ head(StatesSummary)
 
 ### Comparison of Average Rating
 
-Average will be used as it is more representative for comparison. Top 10 States by average rating of PGA will be used as reference:
+Average will be used as it is more representative for comparison. Top 10 States by average rating of PGA will be used as reference for comparison:
 
 ```{r}
 top10_average <- top10 %>% inner_join(StatesSummary, by ="state")
@@ -638,13 +718,15 @@ top10_average <- top10 %>% inner_join(StatesSummary, by ="state")
 ggplot(top10_average, aes(x = state, y = mean_stars.y, fill = Group)) + geom_col(position = "dodge", width = 0.6) + theme_minimal() + theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "bottom") + labs(y = "Average Star Rating", title = "Comparison of Mean Star Ratings by State: PGA vs PGB")
 ```
 
-**Findings:**\
-- There are slight differences between average rating by top 10 States.\
-- Only the average rating of LA from PGB is higher than the figure for PGA, while other States of PGA all have higher average stars.\
+**Findings:**
+
+-   There are slight differences between average rating by top 10 States.
+
+-   Only the average rating of LA from PGB is higher than the figure for PGA, while other States of PGA all have higher average stars.\
 
 ### Comparison of Review Count and Unique Users
 
-```{r}
+```{r, warning = FALSE}
 #Visualisation of review count by 52 States
 ggplot(data = StatesSummary, aes(x = state, y = review_count, fill = Group)) + 
   geom_col(position = position_dodge(width = 0.6), width = 0.5) + 
@@ -666,17 +748,23 @@ legend.position = "bottom") +
   labs(y = "The Number of Unique Users", title = "The Number of Unique Users by States between PGA and PGB")
 ```
 
-**Findings:** Despite the differences in statistics of reviews and unique users, both PGA and PGB tend to have the same pattern of these metrics across the 50 States.
+**Findings:** Despite the differences in statistics of reviews and unique users, both PGA and PGB tend to have the same pattern of these metrics across all the States.
 
 ## 2.10) Conclusions:
 
-In comparison with average rating, there are differences of average rating between PGA and PGB groups. Nevertheless, although the PGA's unique users and review count are higher than those of PGB, both groups have the same patterns in these metrics.
+In comparison with average rating, there are differences of average rating between `PGA` and `PGB` groups. Nevertheless, although the `PGA` 's unique users and review count are higher than those of `PGB`, both groups have the same patterns in these metrics. Nevertheless, the quantity of PGA in all metrics are higher than PGB.
 
-# Question 3:
+# Part 3:
+
+**Objective**:
+
+-   Analyse and visualuse top 10 users by their review count
+
+-   Analyse their user behaviour and engagement with the community, via average review length and rating distribution.
 
 ## 3.1) Dataset selection for analysis
 
-For this question, reviewsUsers will be used for the analysis.
+For this question, `reviewsUsers` will be reused for the analysis.
 
 ```{r}
 head(reviewsUsers)
@@ -684,66 +772,111 @@ head(reviewsUsers)
 
 ## 3.2) Top 10 users by the review count, and their average review stars accordingly
 
-```{r}
+```{r, warning = FALSE}
 #Top 10 users by review count
 reviewsTable <- reviewsUsers %>% group_by(user_id, name) %>% 
   filter(!is.na(name), name != "") %>% #remove any blank strings or NA in names
-  summarise(review_count = n(), avg_starRating = mean(stars, na.rm = TRUE), 
-            avg_reviewLength = mean(nchar(text), na.rm = TRUE)) #add and calculate new columns -review count, average review stars, average review length
+  summarise(review_count = n(), 
+            avg_starRating = mean(stars, na.rm = TRUE), 
+            avg_reviewLength = mean(nchar(text), na.rm = TRUE),
+            .groups = "drop") #add and calculate new columns -review count, average review stars, average review length
 
 Top10_ReviewCount <- reviewsTable %>% arrange(desc(review_count))
 
 #rename the headers
-colnames(Top10_ReviewCount) <- c("User ID", "Name", "Review Count", "Average Rating", "Average Review Length") 
+colnames(Top10_ReviewCount) <- c("User Id", "Name", "Review Count", "Average Rating", "Average Review Length") 
 
 Top10_ReviewCount<- Top10_ReviewCount[1:10,] #pick top 10 users only 
 
 #Tabulate the summary of the data (kable/kableextra).
 kable(Top10_ReviewCount, caption = "Top 10 Users by Number of Reviews and Their Average Rating", digits = 3) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
-                full_width = FALSE,
-                position = "center")
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE, position = "center")
 ```
 
-**Findings:**\
-- There is less significant differences between review count from top 10 users, while there are considerable differences between their average rating and average texts for review.\
-- Even customer Rebecca (u_27070) has the highest review count (18), this customer has low average rating and average review length compared to others, indicating a low-quality engagement from them.\
-- Customer Christopher and Rebecca (u_29224) could be potential customers with high engagement, as they have relative high balance between their review count and average rating for each review. Their average review length, particularly of Christopher is high in comparison to other top 10.\
-- Customer Andrew has the lowest average stars even has quite high review count, indicating low-quality engagement from them. The company should come up with further strategy improving their engagements.\
+**Findings:**
 
-## 3.3) Visualisation of their rating distrubtion (using ggplot2)
+-   There is less significant differences between review count from top 10 users, while there are considerable differences between their average rating and average texts for review.
+
+-   Even customer Rebecca (`u_27070`) has the highest review count (`r Top10_ReviewCount[1,3]`), this customer has low average rating and average review length compared to others, indicating a low-quality engagement from them.
+
+-   Customer Christopher and Rebecca (`u_29224`) could be potential customers with high engagement, as they have relative high balance between their review count and average rating. Their average review length, particularly for Christopher, is high in comparison to other top 10.
+
+-   Customer Andrew has the lowest average stars even has quite high review count, indicating low-quality engagement from them. The company should come up with further strategy improving their engagements.\
+
+## 3.3) Visualisation of their rating distribution (using ggplot2)
 
 To count the number of each rating from the top 10 users appropriately, the `Top10_ReviewCount` data will left join the `cleaned_reviews` dataset.\
 **Note:** Duplicates are acceptable as there is a unique column to identify a particular row - review_id. A user can have multiple reviews
 
 ```{r}
-detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = "user_id")
+detailedRating <- Top10_ReviewCount %>% left_join(cleaned_reviews, by = c("User Id" = "user_id"))
+
+#differentiate 2 Rebecca based on user_id
+categorise <- function(dataset){
+  dataset %>% mutate(Name = case_when(
+    `User Id` == "u_27070" ~ "Rebecca",
+    `User Id` == "u_29224" ~ "Rebecca2",
+    TRUE ~ Name )) # Keep original name for all other users
+}
+detailedRating <- categorise(detailedRating)
+
+
 detailedRating #check the output
 ```
 
-The Visualisation of Rating Distribution
+Visualisation of rating by top 10 users (horizontal boxplot)
+
+```{r}
+ggplot(detailedRating, aes(x = Name, y=stars, fill = Name)) +
+ coord_flip() + geom_boxplot() + labs(title = "The Rating Distribution by Top 10 Users", y = "Star Rating", x = "Customer") + theme_minimal(base_size = 14)
+```
+
+**Findings**
+
+-   For median star rating, the majority of them are 3 or 4.
+
+-   User Rebecca (`u_27070`) despite having the highest frequency of reviews but has quite low median rating (approximately 2.5 out of 5), indicating their low-quality engagement for the community.
+
+-   User Tracy tend to have good user engagement with relatively high median star rating among top 10 users (4 out of 5), with 15 reviews.
+
+-   Although user Christopher was concluded to be potential customer for the community, their median rating is 3 out of 5, implying their neutral engagement toward the community
+
+-   As mentioned, Andrew is the least engaged user among the top 10 users, with the lowest median star rating and lowest average review length.
+
+The Visualisation of Rating Distribution by each rating category:
 
 ```{r}
 ggplot(detailedRating, aes(x = factor(stars), fill = factor(stars))) +
 geom_bar() + scale_fill_manual(
 values = c("1" = "#d73027","2" = "#fc8d59","3" = "#fee08b","4" = "#d9ef8b","5" = "#91cf60"), name = "Star Rating") + 
-  labs(title = "Rating Distribution for Top 10 Users", x = "Star Rating", y = "Count") + theme_minimal(base_size = 14)
+  labs(title = "The Rating Distribution of Top 10 Users by Rating Category", x = "Star Rating", y = "Count") + theme_minimal(base_size = 14)
 ```
 
-**Findings**\
-- Overall, the engagement from top 10 active users tend be moderate from low rather than positive engagement. - The number of low rating (1-2) tend to be higher than high rating (4-5), indicating a quite low engagement despite being these top 10 active users.\
-- The number of rating 3 for reviews is the highest across all star levels. This indicates the moderate experience from these top 10 users with the community.\
+**Findings**
+
+-   Overall, the engagement from top 10 active users tend be moderate from low rather than positive engagement. - The number of low rating (1-2) tend to be higher than high rating (4-5), indicating a quite low engagement despite being these top 10 active users.
+
+-   The number of rating 3 for reviews is the highest across all star levels. This indicates the moderate experience from these top 10 users with the community. The firm should take further action improving their user experience with the community.\
 
 ## 3.4) Conclusions:
-Despite being top 10 active users with highest review counts, their user engagement and behaviour is slightly low-quality as more than 60% of their ratings fall from 1 to 3 in rating stars.
 
-# Question 4:
+Despite being top 10 active users with highest review counts, their user engagement and behaviour is slightly low-quality as more than 60% of their ratings fall from 1 to 3 in rating stars. The median star rating of these users are 3 (4 users) and 4 (3 users).
 
-Write the code to analyse if there is a major difference between the review behavior of users who joined before and after 2020.
+Potentials users with good frequency of review and engagement are Christopher, and Tracy, while Rebecca with highest review count tends to have average engagement with the community.
+
+# Part 4:
+
+**Objective**:
+
+-   Analyse if there is a major difference between the review behavior of users who joined before and after 2020.
+
+-   Compare thestar rating behaviour and the length of the reviews of these 2 user groups.
+
+-   Visualise the average review length by the two groups.
 
 ## 4.1) Data Selection:
 
-For this question, reviewsUsers will be used again for the analysis.
+For this question, `reviewsUsers` will be used again for the analysis.
 
 ```{r}
 head(reviewsUsers)
@@ -762,7 +895,7 @@ head(after2020) #recheck data before proceeding
 
 ## 4.3) Compare their star rating behaviour and the length of the reviews (number of characters in the review text).
 
-Create another column called text_count to count the numbers of characters in each review:
+Create another column `text_count` to count the numbers of characters in each review:
 
 ```{r}
 #Auto change NA or blank strings into 0 in char_count
@@ -775,7 +908,7 @@ after2020 <- after2020 %>% mutate(text = if_else(is.na(text) |
                   char_count = if_else(text == "", 0L, nchar(text)))
 ```
 
-Combine two user groups data for visualisation
+Combine two user groups data for visualisation, and add column `char_count` to the dataset:
 
 ```{r}
 #add a column date_category to categorise before and after 2020
@@ -787,8 +920,9 @@ merge_data<- merge_data %>% mutate(text = if_else(is.na(text) |
                   char_count = if_else(text == "", 0L, nchar(text)))
 ```
 
+Compare average star rating via mean, median, IQR:
+
 ```{r}
-#Compare average star rating 
 aggregate(stars~member_type, merge_data, mean)
 
 #more detailed with IQR, and min max
@@ -796,18 +930,21 @@ summary(after2020$stars)
 summary(before2020$stars)
 ```
 
+The bar plot demonstrating the rating behaviour by the two user groups:
+
 ```{r}
 ggplot(merge_data, aes(x = stars, fill = member_type)) + 
   geom_bar(position = "dodge") + 
-  labs(title = "Rating Behaviour Before and After 2020", x = "Rating", y = "Count") + scale_fill_manual(values = c("before2020" = "#1f77b4", "after2020" = "#ff7f0e")) +
-  theme_minimal(base_size = 14)
+  labs(title = "Rating Behaviour Before and After 2020", x = "Rating", y = "Count") + scale_fill_manual(values = c("before2020" = "#1f77b4", "after2020" = "#ff7f0e")) +theme_minimal(base_size = 14)
 ```
 
-**Findings**\
-- Users joining after 2020 are more active with the community as their rating count (from 1 to 5) is all higher than those joining before 2020.\
-- Combining with mean in average star, users joining after 2020 have slightly higher average rating then those before 2020, indicating more engagement from this group.\
+**Findings**
 
-Summarise review length:
+-   Users joining after 2020 are more active with the community as their rating count (from 1 to 5) is all higher than those joining before 2020.
+
+-   Combining with mean in average star, users joining after 2020 have slightly higher average rating then those before 2020, indicating more engagement from this group.\
+
+The summary of the review length:
 
 ```{r}
 #Compare review length
@@ -818,35 +955,41 @@ summary(after2020$char_count)
 summary(before2020$char_count)
 ```
 
-Histogram visualise the distribution of character count
+Histogram visualises the distribution of character count by the two user groups:
 
 ```{r}
 ggplot(merge_data, aes(x = char_count, fill = member_type)) + 
   geom_histogram(position = "identity", bins = 25) +
   scale_fill_manual(values = c("before2020" = "#1f77b4", "after2020" = "#ff7f0e")) +
-  labs(title = "Review Length Before and After 2020",
+  labs(title = "The Distribution of Review Length, Before and After 2020",
        x = "Review Length (Character Count)",
        y = "Freqency") +
   theme_minimal(base_size = 17)
 ```
 
-**Findings**\
-- Despite having the same patterns of distribution, members joining after 2020 tend to review more requently than those before 2020, indicating active behaviours from after 2020 members.\
-- The gaps are particularly clear when review length starting from 25 to 50.\
+**Findings**
+
+-   Despite having the same patterns of distribution, members joining after 2020 tend to review more frequently than those before 2020, indicating active behaviours from after 2020 members.
+
+-   The gaps are particularly clear when review length starting from 25 to 50.\
 
 ## 4.4) Visualise the average review length by the two groups.
 
 ```{r}
 #visualise the average review length
 ggplot(merge_data, aes(x = member_type, y = char_count, fill = member_type)) + geom_boxplot() + labs(
-title = "Average Review Length Before and After 2020", x = "Member Type", y = "Review Length (Characters)") + scale_fill_manual(values = c("before2020" = "darkblue", "after2020" = "lightpink")) +
+title = "Average Review Length Before and After 2020", x = "Member Type", y = "Review Length (Characters)") + scale_fill_manual(values = c("before2020" = "lightblue", "after2020" = "lightpink")) +
   theme_minimal(base_size = 14) + theme(legend.position = "none")
 ```
 
-**Findings:** \
-- Both of the groups has nearly equal mean in average review length. There distribution and IQR also have high similarity as well.\
-- Thus, there is no major differences between the distribution of average review length from users joining before and after 2020.\
+**Findings:**
+
+-   Both of the groups has nearly equal mean in average review length. There distribution and IQR also have high similarity as well.
+
+-   Thus, there is no major differences between the distribution of average review length from users joining before and after 2020.\
 
 ## 4.5) Conclusions:
 
-User engagement and behaviour of those joining after 2020 tend to be higher than those before 2020. They reviewed more frequently, and are more likely to have higher review length on each of their review.
+User engagement and behaviour of those joining after 2020 tend to be higher and more active than those before 2020. They reviewed more frequently, and are more likely to have higher review length on each of their review. \
+In conjunction with the analysis of New users in Part 1, these users are promising for targeting to enhance the community's engagement.
+
