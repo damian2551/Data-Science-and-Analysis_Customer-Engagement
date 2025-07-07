@@ -1,0 +1,2 @@
+"0","ggplot(users2, mapping = aes(x = average_stars, fill = factor(member_type))) + geom_histogram(position = ""stack"", color = ""black"") +"
+"0","labs(title = ""Distribution of Average Ratings by Member Type"", x = ""Average Rating"",y = ""Count"") + theme_minimal() #note average_stars must be continuous variables to do histogram"

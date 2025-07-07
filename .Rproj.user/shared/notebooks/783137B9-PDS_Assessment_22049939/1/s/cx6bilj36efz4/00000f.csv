@@ -1,0 +1,8 @@
+"0","#Select top 10"
+"0","top10 <- avgTable_byState %>% arrange(desc(mean_stars)) %>% slice_head(n = 10)"
+"0",""
+"0","#Visualisation of top 10"
+"0","ggplot(top10, aes(x = reorder(state, mean_stars), y = mean_stars, fill = state)) + geom_bar(stat = ""identity"") + "
+"0","  geom_text(aes(label = round(mean_stars, 3)), size = 3.5) + #adding numbers for better reading"
+"0","  coord_flip() +"
+"0","  labs(title = ""Top 10 States by Average Review Stars"", x = ""State"", y = ""Average Stars"") + theme_minimal() + theme(legend.position = ""none"")"

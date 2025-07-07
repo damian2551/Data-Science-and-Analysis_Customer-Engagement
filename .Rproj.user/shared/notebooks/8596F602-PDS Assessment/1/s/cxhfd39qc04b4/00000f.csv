@@ -1,0 +1,8 @@
+"0","joined_data <- top10 %>% left_join(numReviews, by = ""state"") %>% left_join(uniqueUserCount, by = ""state"")"
+"0",""
+"0","colnames(joined_data) <- c(""State"", ""Average Stars"", ""Review Count"", ""Unique Users"")"
+"0",""
+"0","#using kable to tabulate the top 10 States"
+"0","kable(joined_data, caption = ""Summary of 10 States (PGA)"", digits = 3) %>%"
+"0","  kable_styling(bootstrap_options = c(""striped"", ""hover"", ""condensed"", ""responsive""),"
+"0","                full_width = FALSE, position = ""center"")"

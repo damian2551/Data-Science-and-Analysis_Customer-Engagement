@@ -1,0 +1,3 @@
+"0","#Create table having unique user count by States"
+"0","uniqueUserCount <- cleaned_merge_PGA %>% distinct(user_id, state) %>% count(state, name = ""unique_users"") "
+"0","head(uniqueUserCount) #check data"

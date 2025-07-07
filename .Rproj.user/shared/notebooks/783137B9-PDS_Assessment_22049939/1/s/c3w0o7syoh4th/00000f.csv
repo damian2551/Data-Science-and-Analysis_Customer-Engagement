@@ -1,0 +1,4 @@
+"0","Top10_States <- Top10_UniqueUsers %>% left_join(numReviews, by = ""state"") %>% left_join(avgTable_byState, by = ""state"")"
+"0",""
+"0","colnames(Top10_States) <- c(""State"", ""Unique Users"",""Review Count"",""Average Stars"")"
+"0","Top10_States #print output"

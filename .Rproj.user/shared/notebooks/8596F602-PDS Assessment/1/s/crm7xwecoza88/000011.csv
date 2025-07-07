@@ -1,0 +1,2 @@
+"0","Top10_UniqueUsers <- uniqueUserCount %>% arrange(desc(unique_users))"
+"0","Top10_UniqueUsers[1:10,] #pick top 10 after sort descending"

@@ -1,0 +1,9 @@
+"0","ggplot(data = users2, aes(x = average_stars)) +"
+"0","  geom_histogram(aes(y = ..density..),bins = 20, fill = ""lightpink"", color = ""black"", alpha = 0.6) +"
+"0","  geom_density(color = ""darkblue"", size = 1) + # adding the curve to show distribution"
+"0","  facet_wrap(~ factor(member_type)) +"
+"0","  labs(title = ""Distribution of Average Stars by Member Type"","
+"0","       x = ""Average Stars"","
+"0","       y = ""Density"") + theme_minimal()"
+"2","Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+Please use `linewidth` instead."
