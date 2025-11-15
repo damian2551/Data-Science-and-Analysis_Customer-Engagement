@@ -9,7 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-**Assumptions**\
+**Assumptions**
 - Any rows having NA or blank strings in user_id or review_id will be removed as they are not meaningful for further calculations.\
 - Other variables which are not used in the analysis but having NA or blank strings may not need to be removed.\
 - In reviews dataset, users are assumed to be in the same State with the business they reviewed. 
@@ -48,7 +48,7 @@ top15_ReviewCount <- users %>%  arrange(desc(review_count)) %>% select(name, rev
 top15_ReviewCount
 ```
 
-**Findings:** Since top 15 users have the **same number of review count (99)** which is not meaningful for interpretation afterward, users dataset will be merged with reviews dataset for a comprehensive and meaningful analysis.\
+**Findings:** Since top 15 users have the **same number of review count (99)** which is not meaningful for interpretation afterward, users dataset will be merged with reviews dataset for a comprehensive and meaningful analysis.
 
 Before joining, `reviews` data would be examined for usability:
 
@@ -72,7 +72,7 @@ colSums(sapply(reviews, duplicated))
 
 -   Despite having duplicated in other values, the `review_id` which is essential to identify a particular information about a review is still unique. Therefore, other duplicates are acceptable.
 
--   Only `user_id` variable should be addressed if there are any duplicates for further analysis.\
+-   Only `user_id` variable should be addressed if there are any duplicates for further analysis.
 
 Remove any rows having empty strings values in user_id and review_id from reviews for further analysis:
 
